@@ -7,7 +7,10 @@ cd MY-NEW-APP
 
 ```
 npm install
+
 ```
+
+ Start development server
 ```
 npx expo start
 ```
