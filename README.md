@@ -9,8 +9,6 @@ cd MY-NEW-APP
 npm install
 
 ```
-
-```
 npx expo start
 ```
 
@@ -18,6 +16,9 @@ You can choose to run:
 	•	a → Android emulator
 	•	i → iOS simulator
 	•	w → Web browser
+```
+
+
 
 MY-NEW-APP/
 │
