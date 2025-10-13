@@ -1,12 +1,11 @@
 ##  설치 및 실행 / Installation & Run
 
 ###  Clone this repository
-```bash
+
 git clone https://github.com/<your-username>/MY-NEW-APP.git
 cd MY-NEW-APP
 
 
-```bash
 # Install dependencies
 npm install
 
