@@ -5,15 +5,13 @@
 git clone https://github.com/<your-username>/MY-NEW-APP.git
 cd MY-NEW-APP
 
-```
+
+```bash
+# Install dependencies
 npm install
 
-```
-
- Start development server
-```
+# Start Expo development server
 npx expo start
-```
 
 You can choose to run:
 	•	a → Android emulator
