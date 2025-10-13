@@ -1,6 +1,4 @@
----
-
-## 🚀 How to Run
+# 🚀 How to Run
 
 ```bash
 # 1️⃣ Install dependencies

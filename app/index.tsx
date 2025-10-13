@@ -7,19 +7,17 @@ import MainLeft from "../assets/images/main_img.svg";
 export default function StartPage() {
   const router = useRouter();
 
-  // ✅ 폰트 로드 (Mulish 폰트 불러오기)
+  // ✅ GowunDodum 폰트만 로드
   const [fontsLoaded] = useFonts({
-    MulishExtraBold: require("../assets/fonts/Mulish/static/Mulish-ExtraBold.ttf"),
-    MulishRegular: require("../assets/fonts/Mulish/static/Mulish-Regular.ttf"),
+    "GowunDodum-Regular": require("../assets/fonts/GowunDodum-Regular.ttf"),
   });
 
-  // ⏳ 폰트가 아직 로드되지 않았을 때 null 반환
   if (!fontsLoaded) return null;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        {/* 👥 일러스트 이미지 (SVG 파일) */}
+        {/* 👥 일러스트 이미지 */}
         <View style={styles.illustrationBox}>
           <View style={{ position: "relative", right: 0 }}>
             <MainLeft width={300} height={200} />
@@ -49,19 +47,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
     borderRadius: 40,
-    justifyContent: "center", // ⬆️ 수직 가운데 정렬
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
   },
 
-  // 🧩 메인 콘텐츠 영역 (이미지 + 텍스트)
+  // 🧩 메인 콘텐츠
   inner: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 80, // 👇 버튼 공간 확보
+    marginBottom: 80,
   },
 
-  // 🖼️ 일러스트 (SVG)
+  // 🖼️ 일러스트
   illustrationBox: {
     flexDirection: "row",
     justifyContent: "center",
@@ -82,7 +80,7 @@ const styles = StyleSheet.create({
     fontFamily: "GowunDodum-Regular",
   },
 
-  // 💭 서브 타이틀 텍스트
+  // 💭 서브 타이틀
   subtitle: {
     fontSize: 15,
     color: "#222",
@@ -91,10 +89,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // 🚀 시작 버튼
+  // 🚀 버튼
   button: {
     position: "absolute",
-    bottom: 100, // 🔼 버튼 위치
+    bottom: 100,
     backgroundColor: "#000",
     paddingHorizontal: 80,
     paddingVertical: 14,
