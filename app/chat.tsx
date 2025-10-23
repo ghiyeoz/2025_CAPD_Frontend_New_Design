@@ -1,3 +1,4 @@
+// app/chat.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   SafeAreaView,
@@ -13,15 +14,19 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router"; // 🔎 main에서 넘어온 mode 수신
 import * as ImagePicker from "expo-image-picker";
 import Modal from "react-native-modal";
 import { useFonts } from "expo-font";
 
+// 🔗 FASTAPI 연결 준비 (백엔드 연결 시 주석 해제하여 사용)
+// import * as SecureStore from "expo-secure-store";
+// import { startChat, sendMessage } from "../src/api/chat"; // /chat/start, /chat/send
+
 export default function ChatPage() {
   const router = useRouter();
 
-  // 💬 채팅 메시지 상태 관리
+  // 💬 채팅 메시지 상태
   const [messages, setMessages] = useState<
     { id: number; text?: string; image?: string; caption?: string; sender: "user" | "bot" }[]
   >([
@@ -38,9 +43,22 @@ export default function ChatPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageCaption, setImageCaption] = useState("");
 
-  // 🔄 스크롤과 키보드 움직임 제어
+  // 🔄 스크롤 & 키보드 제어
   const scrollRef = useRef<ScrollView>(null);
-  const inputY = useRef(new Animated.Value(0)).current;
+  const inputY = useRef(new Animated.Value(0)).current; // UI 모양 유지용
+  const [kbHeight, setKbHeight] = useState(0); // 실제 키보드 높이(스크롤 여유 공간 계산)
+
+  // 🔎 main.tsx 에서 전달된 대화 모드
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const modeMap: Record<string, "friendly" | "honest" | "realistic"> = {
+    "친한 친구 같이 편안한 대화": "friendly",
+    "이성적이고 솔직한 대화설문조사": "honest",
+    "현실을 직시하는 대화": "realistic",
+  };
+  const currentMode = modeMap[String(mode || "")] || "friendly";
+
+  // 🆔 백엔드 세션 ID (연결 시 사용)
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // 🧩 폰트 로드
   const [fontsLoaded] = useFonts({
@@ -48,30 +66,42 @@ export default function ChatPage() {
   });
   if (!fontsLoaded) return null;
 
-  // ⌨️ 키보드가 올라올 때 입력창 위치 조정 (iOS 전용)
+  // ⌨️ 키보드가 올라올 때 입력창 위치 조정 + 스크롤 여유 공간 확보
   useEffect(() => {
-    const keyboardShow = Keyboard.addListener("keyboardWillShow", (e) => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = (e: any) => {
+      const h = e?.endCoordinates?.height ?? 0;
+      setKbHeight(h);
       Animated.timing(inputY, {
-        toValue: e.endCoordinates.height - (Platform.OS === "ios" ? 20 : 0),
-        duration: 250,
+        toValue: h - (Platform.OS === "ios" ? 20 : 0),
+        duration: Platform.OS === "ios" ? 250 : 0,
         useNativeDriver: false,
-      }).start();
-    });
-    const keyboardHide = Keyboard.addListener("keyboardWillHide", () => {
+      }).start(() => {
+        // 키보드가 뜨면 바로 맨 아래로 스크롤
+        requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      });
+    };
+
+    const onHide = () => {
+      setKbHeight(0);
       Animated.timing(inputY, {
         toValue: 0,
-        duration: 250,
+        duration: Platform.OS === "ios" ? 250 : 0,
         useNativeDriver: false,
       }).start();
-    });
-
-    return () => {
-      keyboardShow.remove();
-      keyboardHide.remove();
     };
-  }, []);
 
-  // 🗨️ 새 메시지를 추가하는 함수
+    const subShow = Keyboard.addListener(showEvt, onShow);
+    const subHide = Keyboard.addListener(hideEvt, onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [inputY]);
+
+  // 🗨️ 새 메시지 추가
   const addMessage = (msg: {
     text?: string;
     image?: string;
@@ -79,32 +109,48 @@ export default function ChatPage() {
     sender: "user" | "bot";
   }) => {
     setMessages((prev) => [...prev, { id: Date.now(), ...msg }]);
-    scrollRef.current?.scrollToEnd({ animated: true });
-    Keyboard.dismiss();
+    // 새 메시지 추가 시 하단으로 스크롤
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
 
-    // 👩‍💻 유저가 보낸 메시지에 대해 봇의 응답 시뮬레이션
+    // 👩‍💻 현재는 봇 응답 모의
     if (msg.sender === "user" && !msg.image) {
       setIsTyping(true);
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
-          {
-            id: Date.now() + 1,
-            text: "그건 정말 흥미로운 고민이에요. 더 이야기해볼까요?",
-            sender: "bot",
-          },
+          { id: Date.now() + 1, text: "그건 정말 흥미로운 고민이에요. 더 이야기해볼까요?", sender: "bot" },
         ]);
         setIsTyping(false);
-        scrollRef.current?.scrollToEnd({ animated: true });
+        requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
       }, 1000);
     }
   };
 
   // 📩 텍스트 메시지 전송
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim()) return;
+
+    // 🧪 현재는 로컬 추가(모의). 스타일 유지.
     addMessage({ text: message, sender: "user" });
+    const toSend = message;
     setMessage("");
+
+    // ⚙️ FASTAPI 실제 호출 (백엔드 연결 후 사용)
+    // try {
+    //   let sid = sessionId;
+    //   if (!sid) {
+    //     // const token = await SecureStore.getItemAsync("access_token"); // 필요 시
+    //     const created = await startChat({ mode: currentMode }); // ← 블록 주석 사용 금지
+    //     // 토큰을 쓸 경우:
+    //     // const created = await startChat({ mode: currentMode, token });
+    //     sid = created.session_id;
+    //     setSessionId(sid);
+    //   }
+    //   const resp = await sendMessage({ session_id: sid, role: "user", text: toSend });
+    //   addMessage({ text: resp.reply, sender: "bot" });
+    // } catch (err) {
+    //   addMessage({ text: "서버 통신 오류가 발생했어요. 잠시 후 다시 시도해주세요.", sender: "bot" });
+    // }
   };
 
   // 🖼️ 이미지 선택
@@ -125,31 +171,53 @@ export default function ChatPage() {
   };
 
   // 🖼️ 이미지 + 캡션 전송
-  const handleImageSend = () => {
+  const handleImageSend = async () => {
     if (!selectedImage) return;
+
+    // 🧪 현재는 로컬 추가(모의)
     setMessages((prev) => [
       ...prev,
       { id: Date.now(), sender: "user", image: selectedImage, caption: imageCaption },
     ]);
+    const img = selectedImage;
+    const cap = imageCaption;
     setSelectedImage(null);
     setImageCaption("");
     setImageModalVisible(false);
 
-    // 🤖 봇 응답 시뮬레이션
+    // 🧪 모의 봇 응답
     setIsTyping(true);
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
-        {
-          id: Date.now() + 1,
-          text: "사진을 잘 봤어요! 정말 멋지네요 📸",
-          sender: "bot",
-        },
+        { id: Date.now() + 1, text: "사진을 잘 봤어요! 정말 멋지네요 📸", sender: "bot" },
       ]);
       setIsTyping(false);
-      scrollRef.current?.scrollToEnd({ animated: true });
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
     }, 1200);
+
+    // ⚙️ FASTAPI 실제 호출 (백엔드 연결 후 사용)
+    // try {
+    //   let sid = sessionId;
+    //   if (!sid) {
+    //     const created = await startChat({ mode: currentMode });
+    //     sid = created.session_id;
+    //     setSessionId(sid);
+    //   }
+    //   const resp = await sendMessage({
+    //     session_id: sid,
+    //     role: "user",
+    //     text: cap || "",
+    //     image_url: img, // 서버 스펙에 따라 base64/파일 업로드로 교체 가능
+    //   });
+    //   addMessage({ text: resp.reply, sender: "bot" });
+    // } catch {
+    //   addMessage({ text: "이미지 전송 중 오류가 발생했어요.", sender: "bot" });
+    // }
   };
+
+  // 🔽 스크롤 하단 여유(입력창 높이 + 키보드 높이)
+  const bottomSpacer = 120 + kbHeight; // 기존 디자인 유지하면서 겹침 방지
 
   return (
     <SafeAreaView style={styles.container}>
@@ -164,7 +232,7 @@ export default function ChatPage() {
       <ScrollView
         ref={scrollRef}
         style={styles.chatContainer}
-        contentContainerStyle={{ paddingBottom: 180 }}
+        contentContainerStyle={{ paddingTop: 0, paddingBottom: bottomSpacer }} // ✅ 동적 패딩
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         keyboardShouldPersistTaps="handled"
       >
@@ -180,9 +248,7 @@ export default function ChatPage() {
             {msg.image ? (
               <>
                 <Image source={{ uri: msg.image }} style={styles.imageMsg} />
-                {msg.caption && (
-                  <Text style={[styles.text, { marginTop: 8 }]}>{msg.caption}</Text>
-                )}
+                {!!msg.caption && <Text style={[styles.text, { marginTop: 8 }]}>{msg.caption}</Text>}
               </>
             ) : (
               <Text style={styles.text}>{msg.text}</Text>
@@ -243,6 +309,7 @@ export default function ChatPage() {
   );
 }
 
+/* ⚠️ 스타일은 건드리지 않음 — 아래는 기존 코드 그대로 */
 const styles = StyleSheet.create({
   // 📱 전체 컨테이너
   container: { flex: 1, backgroundColor: "#fff" },

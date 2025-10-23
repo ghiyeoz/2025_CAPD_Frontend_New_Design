@@ -1,3 +1,4 @@
+// app/login.tsx
 import React, { useState } from "react";
 import {
   SafeAreaView,
@@ -13,49 +14,87 @@ import {
   Keyboard,
   ScrollView,
   TouchableOpacity,
+  StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useFonts } from "expo-font";
-import { Ionicons } from "@expo/vector-icons"; // 👁️ 아이콘 추가 (비밀번호 보기용)
+import { Ionicons } from "@expo/vector-icons"; // 👁️ 비밀번호 보기용 아이콘
+
+/***** 🔗 FASTAPI 연결 (백엔드 연결 후 활성화)
+import * as SecureStore from "expo-secure-store";                  // 토큰 저장
+import { login } from "../src/api/auth";                           // FastAPI 로그인 요청 함수
+*****/
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // 👁️ 비밀번호 보기 상태
+  const [showPassword, setShowPassword] = useState(false); // 👁️ 비밀번호 표시 상태
+  const [submitting, setSubmitting] = useState(false);     // 중복 클릭 방지용
 
   // ✅ 폰트 로드
   const [fontsLoaded] = useFonts({
     "GowunDodum-Regular": require("../assets/fonts/GowunDodum-Regular.ttf"),
   });
-
   if (!fontsLoaded) return null;
 
-  // ✅ 유효성 검사
-  const isEmailValid = email.includes("@");
+  // ✅ 이메일 유효성 검사
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isEmailValid = emailRegex.test(email);
   const isPasswordValid = password.length >= 6;
   const isFormValid = isEmailValid && isPasswordValid;
 
-  // 🚪 로그인 버튼 클릭 시 동작
-  const handleLogin = () => {
-    if (!isFormValid) {
-      Alert.alert("Error", "Please enter valid email and password!");
+  /***** ⚙️ FASTAPI 실제 로그인 로직 (백엔드 연결 후 주석 해제)
+  const handleLogin = async () => {
+    if (!isFormValid || submitting) {
+      if (!isFormValid) Alert.alert("Error", "Please enter valid email and password!");
       return;
     }
-    Alert.alert("Success", "Logged in successfully!");
-    router.push("/main");
+    try {
+      setSubmitting(true);
+      // 1️⃣ FastAPI 로그인 요청
+      const res = await login({ email, password }); // POST /auth/login → { access_token, user }
+      // 2️⃣ 액세스 토큰 저장
+      await SecureStore.setItemAsync("access_token", res.access_token);
+      // 3️⃣ 메인 화면으로 이동
+      router.replace("/main");
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.detail ||
+        e?.message ||
+        "로그인 실패. 이메일 또는 비밀번호를 확인해주세요.";
+      Alert.alert("Login failed", msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  *****/
+
+  // 🧪 현재는 MOCK (백엔드 없이 UI 테스트용)
+  const handleLogin = () => {
+    if (!isFormValid || submitting) {
+      if (!isFormValid) Alert.alert("Error", "Please enter valid email and password!");
+      return;
+    }
+    setSubmitting(true);
+    setTimeout(() => {
+      Alert.alert("Success", "Logged in successfully!");
+      router.push("/main");
+      setSubmitting(false);
+    }, 400);
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       {/* 📱 키보드 피하기 설정 */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
       >
-        {/* 📱 아무 곳이나 터치 시 키보드 닫기 */}
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        {/* 📱 빈 화면 터치 시 키보드 닫기 */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={{ flex: 1 }}>
             {/* 🧭 상단 타이틀 */}
             <View style={styles.header}>
@@ -79,6 +118,11 @@ export default function LoginPage() {
                   placeholder="Enter your email"
                   placeholderTextColor="#88879C"
                   keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="emailAddress"
+                  inputMode="email"
+                  returnKeyType="next"
                   value={email}
                   onChangeText={setEmail}
                 />
@@ -96,11 +140,21 @@ export default function LoginPage() {
                     ]}
                     placeholder="Enter your password"
                     placeholderTextColor="#88879C"
-                    secureTextEntry={!showPassword} // 👁️ 비밀번호 보기 토글
+                    secureTextEntry={!showPassword} // 👁️ 보기 토글
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
+                    returnKeyType="go"
                     value={password}
                     onChangeText={setPassword}
+                    onSubmitEditing={handleLogin}
                   />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
                     <Ionicons
                       name={showPassword ? "eye-outline" : "eye-off-outline"}
                       size={22}
@@ -118,17 +172,24 @@ export default function LoginPage() {
             <View style={styles.bottomContainer}>
               {/* 로그인 버튼 */}
               <Pressable
-                style={[styles.loginBtn, !isFormValid && styles.disabledBtn]}
+                style={[styles.loginBtn, (!isFormValid || submitting) && styles.disabledBtn]}
                 onPress={handleLogin}
-                disabled={!isFormValid}
+                disabled={!isFormValid || submitting}
+                accessibilityRole="button"
+                accessibilityLabel="로그인"
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                android_ripple={Platform.OS === "android" ? { color: "rgba(255,255,255,0.1)" } : undefined}
               >
-                <Text style={styles.loginText}>LOGIN</Text>
+                <Text style={styles.loginText}>{submitting ? "..." : "LOGIN"}</Text>
               </Pressable>
 
               {/* 회원가입 버튼 */}
               <Pressable
                 style={styles.signupBtn}
                 onPress={() => router.push("/signup")}
+                accessibilityRole="button"
+                accessibilityLabel="회원가입 페이지로 이동"
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
                 <Text style={styles.signupText}>SIGN UP</Text>
               </Pressable>

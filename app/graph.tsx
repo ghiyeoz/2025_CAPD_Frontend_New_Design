@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// app/graph.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -12,37 +13,71 @@ import { useRouter } from "expo-router";
 import { LineChart } from "react-native-chart-kit";
 import { useFonts } from "expo-font";
 
-// 📱 화면 크기 가져오기 (그래프 너비에 사용)
+/***** 🔗 FASTAPI 연동 준비 (백엔드 연결 시 주석 해제)
+import { getDailyTemperature } from "../src/api/metrics"; // 예: /metrics/daily
+*****/
+
+// 📱 화면 크기 (그래프 너비 계산용)
 const screenWidth = Dimensions.get("window").width;
 
 export default function GraphPage() {
   const router = useRouter();
 
-  // 🌡️ 현재 대화 온도 상태
-  const [temperature, setTemperature] = useState(40);
+  // 🧩 폰트 로드 (다른 페이지들과 일관)
+  const [fontsLoaded] = useFonts({
+    "GowunDodum-Regular": require("../assets/fonts/GowunDodum-Regular.ttf"),
+  });
+  if (!fontsLoaded) return null;
+
+  // 📊 그래프 라벨/데이터를 상태로 관리 (백엔드 값 주입 대비)
+  const [labels, setLabels] = useState<string[]>(["09/27", "09/28", "09/29", "09/30", "09/31"]);
+  const [series, setSeries] = useState<number[]>([0, 100, 50, 75, 25]);
+
+  // 🌡️ 현재 대화 온도(마지막 값 기준)
+  const temperature = useMemo(() => {
+    const last = series[series.length - 1] ?? 0;
+    return Math.max(0, Math.min(100, Math.round(last)));
+  }, [series]);
 
   // 💬 대화 분위기 코멘트
   const [comment, setComment] = useState("좋은 분위기지만 답장이 늦어졌어요");
 
-  // 📊 그래프 데이터 (샘플 데이터)
-  const data = {
-    labels: ["09/27", "09/28", "09/29", "09/30", "09/31"],
-    datasets: [
-      {
-        data: [0, 100, 50, 75, 25],
-        color: () => "#000000ff", // 선 색상
-        strokeWidth: 1, // 선 두께
-      },
-    ],
-  };
-
   // 🧠 온도에 따라 코멘트 자동 변경
   useEffect(() => {
-    if (temperature > 70) setComment("요즘 대화 분위기가 아주 좋아요!"); // 🔥 매우 좋은 분위기
-    else if (temperature > 40)
-      setComment("좋은 분위기지만 답장이 조금 늦어요"); // 🙂 괜찮은 편
-    else setComment("대화 온도가 낮아요. 조금 더 노력해봐요!"); // ❄️ 낮은 분위기
+    if (temperature > 70) setComment("요즘 대화 분위기가 아주 좋아요!");
+    else if (temperature > 40) setComment("좋은 분위기지만 답장이 조금 늦어요");
+    else setComment("대화 온도가 낮아요. 조금 더 노력해봐요!");
   }, [temperature]);
+
+  /***** ⚙️ FASTAPI: 실제 데이터 불러오기 (백엔드 연결 후 사용)
+  useEffect(() => {
+    // 예시 응답: { labels: ["09/27", ...], values: [0, 100, ...] }
+    (async () => {
+      try {
+        const resp = await getDailyTemperature(); // GET /metrics/daily
+        setLabels(resp.labels);
+        setSeries(resp.values);
+      } catch {
+        // 네트워크 오류 시에도 UI는 mock 데이터로 안전하게 동작
+      }
+    })();
+  }, []);
+  *****/
+
+  // LineChart가 기대하는 형태로 변환
+  const chartData = useMemo(
+    () => ({
+      labels,
+      datasets: [
+        {
+          data: series,
+          color: () => "#000000ff", // 선 색상 (디자인 유지)
+          strokeWidth: 1,
+        },
+      ],
+    }),
+    [labels, series]
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -64,31 +99,31 @@ export default function GraphPage() {
             </Text>
           </View>
 
-          {/* 📈 라인 차트 (대화 온도 변화 시각화) */}
+          {/* 📈 라인 차트 */}
           <LineChart
-            data={data}
-            width={screenWidth * 0.85} // 화면 비율 기반
+            data={chartData}
+            width={screenWidth * 0.85}
             height={360}
             chartConfig={{
-              backgroundGradientFrom: "#ffffffff", // 배경 색상 시작
-              backgroundGradientTo: "#ffffffff", // 배경 색상 끝
-              color: () => "#dedbdbff", // 선 색
-              labelColor: () => "#000", // 라벨 색
-              strokeWidth: 4, // 선 굵기
+              backgroundGradientFrom: "#ffffffff",
+              backgroundGradientTo: "#ffffffff",
+              color: () => "#dedbdbff",
+              labelColor: () => "#000",
+              strokeWidth: 4,
               propsForDots: {
-                r: "2", // 점 크기
+                r: "2",
                 strokeWidth: "2",
                 stroke: "#010101ff",
                 fill: "#000",
               },
               propsForLabels: {
-                fontSize: 10, // 라벨 폰트 크기
+                fontSize: 10,
               },
             }}
-            bezier // 부드러운 곡선
+            bezier
             style={styles.chart}
-            withVerticalLines={true} // 세로선 표시
-            withHorizontalLines={true} // 가로선 표시
+            withVerticalLines
+            withHorizontalLines
           />
         </View>
       </View>
@@ -96,6 +131,7 @@ export default function GraphPage() {
   );
 }
 
+/* ⚠️ 스타일은 기존 디자인을 그대로 유지 */
 const styles = StyleSheet.create({
   // 🧱 기본 컨테이너
   container: {

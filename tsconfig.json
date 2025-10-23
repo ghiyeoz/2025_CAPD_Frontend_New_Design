@@ -18,5 +18,5 @@
   ".expo/types/**/*.ts",
   "expo-env.d.ts",
   "declarations.d.ts"     
-]
+, "src/api/client.ts"]
 }

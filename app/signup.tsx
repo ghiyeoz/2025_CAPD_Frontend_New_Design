@@ -1,3 +1,4 @@
+// app/signup.tsx
 import React, { useState } from "react";
 import {
   SafeAreaView,
@@ -12,14 +13,20 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 
+/***** 🔗 FASTAPI 연결 (백엔드 준비되면 주석 해제)
+import * as SecureStore from "expo-secure-store";              // 필요 시: 회원가입 후 자동 로그인 토큰 저장
+import { signup } from "../src/api/auth";                      // POST /auth/signup 요청 함수
+*****/
+
 export default function SignupPage() {
   const router = useRouter();
 
-  // 🧠 상태 관리 (입력값 저장)
+  // 🧠 입력값 상태
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -27,33 +34,77 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
+  // 🚫 중복 제출 방지
+  const [submitting, setSubmitting] = useState(false);
+
   // ✅ 폰트 로드
   const [fontsLoaded] = useFonts({
     "GowunDodum-Regular": require("../assets/fonts/GowunDodum-Regular.ttf"),
   });
   if (!fontsLoaded) return null;
 
-  // ✅ 유효성 검사
-  const isEmailValid = email.includes("@"); // 이메일 형식
-  const isAgeValid = Number(age) >= 16 && Number(age) <= 100; // 나이 범위
+  // ✅ 유효성 검사(조금 더 엄격)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // 이메일 형식
+  const isEmailValid = emailRegex.test(email);
+  const ageNum = Number(age);
+  const isAgeValid = Number.isFinite(ageNum) && ageNum >= 16 && ageNum <= 100; // 나이 범위
   const isPasswordValid = password.length >= 6; // 비밀번호 길이
-  const isConfirmMatch = password === confirm; // 비밀번호 일치 여부
-
+  const isConfirmMatch = password === confirm; // 비밀번호 일치
   const isFormValid =
-    isEmailValid && name && isAgeValid && gender && isPasswordValid && isConfirmMatch;
+    isEmailValid && !!name && isAgeValid && !!gender && isPasswordValid && isConfirmMatch;
 
-  // 🚀 회원가입 버튼 클릭 시 동작
-  const handleSignup = () => {
-    if (!isFormValid) {
-      Alert.alert("Error", "Please fill all fields correctly!");
+  /***** ⚙️ FASTAPI 실제 회원가입 로직 (백엔드 연결 후 이 블록을 사용)
+  const handleSignup = async () => {
+    if (!isFormValid || submitting) {
+      if (!isFormValid) Alert.alert("Error", "Please fill all fields correctly!");
       return;
     }
-    Alert.alert("Success", "Account created successfully!");
-    router.push("/main");
+    try {
+      setSubmitting(true);
+      // 1️⃣ 회원가입 요청
+      await signup({
+        email,
+        password,
+        name,
+        age: ageNum,
+        gender: gender as "man" | "woman",
+      });
+      // 2️⃣ 가입 성공 → 로그인 화면으로 이동 (또는 토큰 있으면 바로 메인 이동)
+      //    만약 서버가 access_token을 반환한다면 아래처럼 저장 후 메인으로:
+      // const res = await signup(...); await SecureStore.setItemAsync("access_token", res.access_token); router.replace("/main");
+      Alert.alert("Success", "Account created. Please log in.");
+      router.replace("/login");
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.detail ||
+        e?.message ||
+        "Signup failed. Please check your inputs.";
+      Alert.alert("Signup failed", msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  *****/
+
+  // 🧪 현재는 MOCK (백엔드 없이 UI 테스트용)
+  const handleSignup = () => {
+    if (!isFormValid || submitting) {
+      if (!isFormValid) Alert.alert("Error", "Please fill all fields correctly!");
+      return;
+    }
+    setSubmitting(true);
+    setTimeout(() => {
+      Alert.alert("Success", "Account created successfully!");
+      // 데모에선 메인으로, 실제에선 보통 로그인 화면으로 이동
+      // router.replace("/login");
+      router.push("/main");
+      setSubmitting(false);
+    }, 400);
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       {/* 📱 키보드 피하기 설정 */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -61,7 +112,7 @@ export default function SignupPage() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
       >
         {/* 🖐️ 빈 화면 터치 시 키보드 닫기 */}
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={{ flex: 1 }}>
             {/* 🔝 상단 타이틀 */}
             <View style={styles.header}>
@@ -84,6 +135,11 @@ export default function SignupPage() {
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="emailAddress"
+                  inputMode="email"
+                  returnKeyType="next"
                 />
               </View>
 
@@ -96,6 +152,9 @@ export default function SignupPage() {
                   placeholderTextColor="#88879C"
                   value={name}
                   onChangeText={setName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="next"
                 />
               </View>
 
@@ -109,6 +168,8 @@ export default function SignupPage() {
                   keyboardType="numeric"
                   value={age}
                   onChangeText={setAge}
+                  inputMode="numeric"
+                  returnKeyType="next"
                 />
               </View>
 
@@ -117,34 +178,26 @@ export default function SignupPage() {
                 <Text style={styles.label}>Gender</Text>
                 <View style={styles.genderRow}>
                   <Pressable
-                    style={[
-                      styles.genderBtn,
-                      gender === "man" && styles.genderBtnActive,
-                    ]}
+                    style={[styles.genderBtn, gender === "man" && styles.genderBtnActive]}
                     onPress={() => setGender("man")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Select gender man"
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <Text
-                      style={[
-                        styles.genderText,
-                        gender === "man" && styles.genderTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.genderText, gender === "man" && styles.genderTextActive]}>
                       MAN
                     </Text>
                   </Pressable>
 
                   <Pressable
-                    style={[
-                      styles.genderBtn,
-                      gender === "woman" && styles.genderBtnActive,
-                    ]}
+                    style={[styles.genderBtn, gender === "woman" && styles.genderBtnActive]}
                     onPress={() => setGender("woman")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Select gender woman"
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
                     <Text
-                      style={[
-                        styles.genderText,
-                        gender === "woman" && styles.genderTextActive,
-                      ]}
+                      style={[styles.genderText, gender === "woman" && styles.genderTextActive]}
                     >
                       WOMAN
                     </Text>
@@ -162,6 +215,10 @@ export default function SignupPage() {
                   secureTextEntry
                   value={password}
                   onChangeText={setPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  returnKeyType="next"
                 />
               </View>
 
@@ -175,6 +232,11 @@ export default function SignupPage() {
                   secureTextEntry
                   value={confirm}
                   onChangeText={setConfirm}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSignup}
                 />
               </View>
 
@@ -186,15 +248,24 @@ export default function SignupPage() {
             <View style={styles.bottomContainer}>
               {/* 회원가입 버튼 */}
               <Pressable
-                style={[styles.loginBtn, !isFormValid && styles.disabledBtn]}
+                style={[styles.loginBtn, (!isFormValid || submitting) && styles.disabledBtn]}
                 onPress={handleSignup}
-                disabled={!isFormValid}
+                disabled={!isFormValid || submitting}
+                accessibilityRole="button"
+                accessibilityLabel="Sign up"
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
-                <Text style={styles.loginText}>SIGN UP</Text>
+                <Text style={styles.loginText}>{submitting ? "..." : "SIGN UP"}</Text>
               </Pressable>
 
               {/* 로그인으로 돌아가기 버튼 */}
-              <Pressable style={styles.signupBtn} onPress={() => router.push("/login")}>
+              <Pressable
+                style={styles.signupBtn}
+                onPress={() => router.push("/login")}
+                accessibilityRole="button"
+                accessibilityLabel="Back to login"
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
                 <Text style={styles.signupText}>BACK TO LOGIN</Text>
               </Pressable>
             </View>
@@ -205,15 +276,13 @@ export default function SignupPage() {
   );
 }
 
+/* ⚠️ 스타일은 건드리지 않음 — 아래는 기존 코드 그대로 */
 const styles = StyleSheet.create({
-  // 🧱 전체 컨테이너
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
     paddingTop: Platform.OS === "android" ? 35 : 0,
   },
-
-  // 🔝 헤더
   header: {
     paddingVertical: 25,
     backgroundColor: "#FFFFFF",
@@ -226,15 +295,11 @@ const styles = StyleSheet.create({
     marginBottom: Platform.OS === "android" ? 5 : 0,
     fontFamily: "GowunDodum-Regular",
   },
-
-  // 📜 스크롤 영역
   scroll: {
     alignItems: "center",
     paddingTop: 50,
     paddingHorizontal: 20,
   },
-
-  // ✏️ 입력 그룹
   fieldGroup: {
     width: "100%",
     marginBottom: 20,
@@ -257,10 +322,8 @@ const styles = StyleSheet.create({
     fontFamily: "GowunDodum-Regular",
   },
   errorBorder: {
-    borderColor: "#FF4B4B", // ❌ 유효하지 않은 입력 시 빨간색 테두리
+    borderColor: "#FF4B4B",
   },
-
-  // 🚻 성별 버튼
   genderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -289,8 +352,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontFamily: "GowunDodum-Regular",
   },
-
-  // ⬇️ 하단 버튼
   bottomContainer: {
     position: "absolute",
     bottom: Platform.OS === "android" ? 10 : 0,
