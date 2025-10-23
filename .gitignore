@@ -1,15 +1,23 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Learn more: https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# ========================
+# 📦 Dependencies
+# ========================
 node_modules/
 
-# Expo
+# ========================
+# ⚙️ Expo & Build Output
+# ========================
 .expo/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# ========================
+# 📱 Native build artifacts
+# ========================
+/ios
+/android
 .kotlin/
 *.orig.*
 *.jks
@@ -18,24 +26,37 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro
+# ========================
+# ⚡ Metro bundler cache
+# ========================
 .metro-health-check*
 
-# debug
+# ========================
+# 🧪 Debug & Logs
+# ========================
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# ========================
+# 🍏 macOS junk
+# ========================
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
-
-# typescript
+# ========================
+# 🧩 TypeScript cache
+# ========================
 *.tsbuildinfo
 
-# generated native folders
-/ios
-/android
+# ========================
+# 🔐 Local environment files
+# ========================
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# ⚠️ Keep the example env file tracked
+# (Don't ignore .env.example!)
